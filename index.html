@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Text Tetris</title>
+    <style>
+        #game {
+            font-family: 'Courier New', monospace;
+            font-size: 30px;
+            line-height: 1;
+            white-space: pre;
+            background: black;
+            color: white;
+            padding: 20px;
+            transform: scaleX(1.75);
+            margin: auto;  /* Center the game container */
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #333;
+            /* Remove max-width and overflow restrictions */
+        }
+        .game-over {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <pre id="game"></pre>
+
+    <script>
+        const BOARD_WIDTH = 10;
+        const BOARD_HEIGHT = 20;
+        const EMPTY = '·';
+        const BLOCK = '█';
+
+        const SHAPES = [
+            { shape: [[1, 1, 1, 1]], color: 'cyan' },           // I
+            { shape: [[1, 1], [1, 1]], color: 'yellow' },       // O
+            { shape: [[1, 1, 1], [0, 1, 0]], color: 'purple' }, // T
+            { shape: [[1, 1, 1], [1, 0, 0]], color: 'orange' }, // L
+            { shape: [[1, 1, 1], [0, 0, 1]], color: 'blue' },   // J
+            { shape: [[1, 1, 0], [0, 1, 1]], color: 'green' },  // S
+            { shape: [[0, 1, 1], [1, 1, 0]], color: 'red' }     // Z
+        ];
+
+        class Tetris {
+            constructor() {
+                this.board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill({ value: EMPTY }));
+                this.score = 0;
+                this.level = 1;
+                this.linesCleared = 0;
+                this.gameOver = false;
+                this.paused = false;
+                this.currentPiece = null;
+                this.currentX = 0;
+                this.currentY = 0;
+                this.keyStates = {
+                    ArrowLeft: false,
+                    ArrowRight: false,
+                    ArrowDown: false
+                };
+                this.moveInterval = null;
+                this.nextPiece = null;
+                this.nextColor = null;
+
+                this.spawnPiece();
+                this.bindControls();
+                this.gameLoop();
+            }
+
+            spawnPiece() {
+                if (this.nextPiece === null) {
+                    const randomPiece = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    this.nextPiece = randomPiece.shape;
+                    this.nextColor = randomPiece.color;
+                }
+
+                this.currentPiece = this.nextPiece;
+                this.currentColor = this.nextColor;
+
+                // Get next piece ready
+                const randomPiece = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                this.nextPiece = randomPiece.shape;
+                this.nextColor = randomPiece.color;
+
+                this.currentX = Math.floor((BOARD_WIDTH - this.currentPiece[0].length) / 2);
+                this.currentY = 0;
+
+                if (!this.isValidMove(this.currentX, this.currentY, this.currentPiece)) {
+                    this.gameOver = true;
+                }
+            }
+
+            bindControls() {
+                // Add window blur event handler at the start of bindControls
+                window.addEventListener('blur', () => {
+                    // Reset all key states when window loses focus
+                    Object.keys(this.keyStates).forEach(key => {
+                        this.keyStates[key] = false;
+                    });
+                    // Clear any existing move interval
+                    if (this.moveInterval) {
+                        clearInterval(this.moveInterval);
+                        this.moveInterval = null;
+                    }
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    if (this.gameOver) {
+                        // Reset game state
+                        this.board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill({ value: EMPTY }));
+                        this.score = 0;
+                        this.level = 1;
+                        this.linesCleared = 0;
+                        this.gameOver = false;
+                        this.paused = false;
+                        this.currentPiece = null;
+                        this.currentX = 0;
+                        this.currentY = 0;
+                        document.getElementById('game').classList.remove('game-over');
+                        this.spawnPiece();
+                        this.gameLoop();
+                        return;
+                    }
+
+                    // Handle pause
+                    if (e.key === 'p' || e.key === 'P') {
+                        this.paused = !this.paused;
+                        if (this.paused) {
+                            this.gameLoop();
+                        } else {
+                            this.gameLoop();
+                        }
+                        this.draw();
+                        return;
+                    }
+
+                    // Don't process other controls if paused
+                    if (this.paused) return;
+
+                    if (e.key === ' ') { // Space bar
+                        // Hard drop
+                        while (this.isValidMove(this.currentX, this.currentY + 1, this.currentPiece)) {
+                            this.currentY++;
+                        }
+                        this.mergePiece();
+                        this.clearLines();
+                        this.spawnPiece();
+                        this.draw();
+                        return;
+                    }
+
+                    if (this.keyStates.hasOwnProperty(e.key) && !this.keyStates[e.key]) {
+                        // Clear any existing interval before creating a new one
+                        if (this.moveInterval) {
+                            clearInterval(this.moveInterval);
+                        }
+
+                        this.keyStates[e.key] = true;
+
+                        // Initial move
+                        this.handleMove(e.key);
+
+                        // Setup continuous movement
+                        this.moveInterval = setInterval(() => {
+                            if (this.keyStates[e.key]) { // Only move if key is still pressed
+                                this.handleMove(e.key);
+                            } else {
+                                clearInterval(this.moveInterval);
+                                this.moveInterval = null;
+                            }
+                        }, 100);
+                    }
+
+                    // Handle rotation separately (no continuous movement)
+                    if (e.key === 'ArrowUp') {
+                        const rotated = this.rotate(this.currentPiece);
+                        if (this.isValidMove(this.currentX, this.currentY, rotated)) {
+                            this.currentPiece = rotated;
+                            this.draw();
+                        }
+                    }
+                });
+
+                document.addEventListener('keyup', (e) => {
+                    if (this.keyStates.hasOwnProperty(e.key)) {
+                        this.keyStates[e.key] = false;
+                        if (this.moveInterval) {
+                            clearInterval(this.moveInterval);
+                            this.moveInterval = null;
+                        }
+                    }
+                });
+            }
+
+            handleMove(key) {
+                switch (key) {
+                    case 'ArrowLeft':
+                        if (this.isValidMove(this.currentX - 1, this.currentY, this.currentPiece)) {
+                            this.currentX--;
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (this.isValidMove(this.currentX + 1, this.currentY, this.currentPiece)) {
+                            this.currentX++;
+                        }
+                        break;
+                    case 'ArrowDown':
+                        if (this.isValidMove(this.currentX, this.currentY + 1, this.currentPiece)) {
+                            this.currentY++;
+                        }
+                        break;
+                }
+                this.draw();
+            }
+
+            rotate(piece) {
+                const N = piece[0].length;
+                const M = piece.length;
+                const rotated = Array(N).fill().map(() => Array(M).fill(0));
+
+                for (let i = 0; i < M; i++) {
+                    for (let j = 0; j < N; j++) {
+                        rotated[j][M - 1 - i] = piece[i][j];
+                    }
+                }
+                return rotated;
+            }
+
+            isValidMove(x, y, piece) {
+                for (let i = 0; i < piece.length; i++) {
+                    for (let j = 0; j < piece[i].length; j++) {
+                        if (piece[i][j]) {
+                            const newX = x + j;
+                            const newY = y + i;
+
+                            if (newX < 0 || newX >= BOARD_WIDTH ||
+                                newY < 0 || newY >= BOARD_HEIGHT ||
+                                this.board[newY][newX].value !== EMPTY) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            mergePiece() {
+                for (let i = 0; i < this.currentPiece.length; i++) {
+                    for (let j = 0; j < this.currentPiece[i].length; j++) {
+                        if (this.currentPiece[i][j]) {
+                            this.board[this.currentY + i][this.currentX + j] = {
+                                value: BLOCK,
+                                color: this.currentColor
+                            };
+                        }
+                    }
+                }
+            }
+
+            clearLines() {
+                let linesCleared = 0;
+
+                for (let i = BOARD_HEIGHT - 1; i >= 0; i--) {
+                    if (this.board[i].every(cell => cell.value === BLOCK)) {
+                        this.board.splice(i, 1);
+                        this.board.unshift(Array(BOARD_WIDTH).fill({ value: EMPTY }));
+                        linesCleared++;
+                        i++;
+                    }
+                }
+
+                if (linesCleared > 0) {
+                    this.score += linesCleared * 100;
+                    this.linesCleared += linesCleared;
+
+                    // Check if level should increase
+                    const targetLines = this.level * 10;
+                    if (this.linesCleared >= targetLines) {
+                        this.level++;
+                        this.linesCleared = 0;  // Reset lines for next level
+                    }
+                }
+            }
+
+            getFallSpeed() {
+                // Start at 1000ms (level 1) and decrease by 75ms per level
+                // This caps at 100ms to keep the game playable
+                return Math.max(1000 - ((this.level - 1) * 75), 100);
+            }
+
+            draw() {
+                const display = document.getElementById('game');
+                const BORDER = '█';
+                const BORDER_COLOR = '#666';
+
+                // Calculate score position for centering
+                const scoreText = `Score: ${this.score}`;
+                const leftPadding = Math.floor((BOARD_WIDTH - scoreText.length) / 2) + 1;
+                let displayString = ' '.repeat(leftPadding) + scoreText + '\n\n';
+
+                // Create game board string
+                for (let i = 0; i < BOARD_HEIGHT; i++) {
+                    // Left border
+                    displayString += `<span style="color: ${BORDER_COLOR}">${BORDER}</span>`;
+
+                    // Game field
+                    for (let j = 0; j < BOARD_WIDTH; j++) {
+                        const cell = this.board[i][j];
+                        let char = cell.value;
+
+                        if (this.currentPiece &&
+                            i >= this.currentY &&
+                            i < this.currentY + this.currentPiece.length &&
+                            j >= this.currentX &&
+                            j < this.currentX + this.currentPiece[0].length &&
+                            this.currentPiece[i - this.currentY][j - this.currentX]) {
+                            displayString += `<span style="color: ${this.currentColor}">${BLOCK}</span>`;
+                        } else if (cell.value === BLOCK) {
+                            displayString += `<span style="color: ${cell.color}">${BLOCK}</span>`;
+                        } else {
+                            displayString += `<span style="color: #444">${char}</span>`;
+                        }
+                    }
+
+                    // Right border and info
+                    displayString += `<span style="color: ${BORDER_COLOR}">${BORDER}</span>`;
+
+                    // Draw next piece preview and info
+                    if (i === 1) {
+                        displayString += '    Level: ' + this.level;
+                    } else if (i === 2) {
+                        displayString += '    Clear: ' + ((this.level * 10) - this.linesCleared);
+                    } else if (i === 4) {
+                        displayString += '    Next:';
+                    } else if (i >= 5 && i < 5 + this.nextPiece.length) {
+                        displayString += '    ';
+                        for (let j = 0; j < this.nextPiece[i - 5].length; j++) {
+                            if (this.nextPiece[i - 5][j]) {
+                                displayString += `<span style="color: ${this.nextColor}">${BLOCK}</span>`;
+                            } else {
+                                displayString += ' ';
+                            }
+                        }
+                    }
+
+                    displayString += '\n';
+                }
+
+                // Draw bottom border
+                displayString += `<span style="color: ${BORDER_COLOR}">${BORDER.repeat(BOARD_WIDTH + 2)}</span>`;
+
+                if (this.gameOver) {
+                    displayString += '\nGame Over! Press any key.';
+                    display.classList.add('game-over');
+                } else if (this.paused) {
+                    displayString += '\nPAUSED';
+                }
+
+                display.innerHTML = displayString;
+            }
+
+            gameLoop() {
+                const update = () => {
+                    if (this.gameOver || this.paused) return;
+
+                    if (this.isValidMove(this.currentX, this.currentY + 1, this.currentPiece)) {
+                        this.currentY++;
+                    } else {
+                        this.mergePiece();
+                        this.clearLines();
+                        this.spawnPiece();
+                    }
+
+                    this.draw();
+                    setTimeout(update, this.getFallSpeed());
+                };
+
+                update();
+            }
+        }
+
+        // Start the game
+        new Tetris();
+    </script>
+</body>
+</html>
