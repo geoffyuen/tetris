@@ -13,7 +13,7 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background: #333;
+            background: #111;
             font-family: 'Press Start 2P', sans-serif;
             font-size: 18px;
         }
@@ -157,6 +157,29 @@
         .mini-cell.filled {
             border-radius: 1px;
         }
+
+        .score-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .high-score {
+            color: #666;
+        }
+
+        .new-high-score {
+            color: gold;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -237,6 +260,9 @@
 
                 this.nextPiece = firstPiece.shape;
                 this.nextColor = firstPiece.color;
+
+                // Initialize high score from localStorage
+                this.highScore = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
 
                 this.spawnPiece();
                 this.bindControls();
@@ -519,14 +545,19 @@
                     // Special scoring for Tetris (4 lines)
                     const baseScore = linesCleared === 4 ? 800 : linesCleared * 100;
                     this.score += baseScore * this.level;
+
+                    // Check for new high score
+                    if (this.score > this.highScore) {
+                        this.highScore = this.score;
+                        localStorage.setItem('tetrisHighScore', this.highScore);
+                    }
+
                     this.linesCleared += linesCleared;
 
                     const targetLines = this.level * 10;
                     if (this.linesCleared >= targetLines) {
                         this.level++;
-                        this.linesCleared = 0;  // Reset lines for next level
-
-                        // Change music track when leveling up
+                        this.linesCleared = 0;
                         this.changeTrack();
                     }
                 }
@@ -556,7 +587,12 @@
             draw() {
                 const display = document.getElementById('game');
                 let html = `
-                    <div class="score">Score: ${this.score}</div>
+                    <div class="score-container">
+                        <div class="score">Score: ${this.score}</div>
+                        <div class="high-score${this.score > 0 && this.score === this.highScore ? ' new-high-score' : ''}">
+                            High Score: ${this.highScore}
+                        </div>
+                    </div>
                     <div class="game-area">
                         <div class="board-container">
                             ${this.gameOver ? '<div class="game-over">Game Over!<br>Press any key.</div>' : ''}
