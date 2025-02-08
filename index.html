@@ -293,6 +293,9 @@
                 // Initialize high score from localStorage
                 this.highScore = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
 
+                // Add ghost piece counter
+                this.ghostPieceRemaining = 0;
+
                 this.spawnPiece();
                 this.bindControls();
                 this.gameLoop();
@@ -562,6 +565,11 @@
                         }
                     }
                 }
+
+                // Decrement ghost piece counter if it's active
+                if (this.ghostPieceRemaining > 0) {
+                    this.ghostPieceRemaining--;
+                }
             }
 
             clearLines() {
@@ -606,6 +614,11 @@
                             this.linesCleared = 0;
                             this.changeTrack();
                             this.animateLevelUp();
+                        }
+
+                        // Enable ghost piece for next 8 pieces if Tetris was achieved
+                        if (linesCleared === 4) {
+                            this.ghostPieceRemaining = 8;
                         }
 
                         this.draw();
@@ -700,9 +713,9 @@
                             <div class="board">
                 `;
 
-                // Calculate ghost piece position - only for levels 1-2
+                // Calculate ghost piece position - for levels 1-2 OR when ghost piece bonus is active
                 let ghostY = this.currentY;
-                if (this.currentPiece && this.level <= 2) {
+                if (this.currentPiece && (this.level <= 2 || this.ghostPieceRemaining > 0)) {
                     while (this.isValidMove(this.currentX, ghostY + 1, this.currentPiece)) {
                         ghostY++;
                     }
@@ -726,9 +739,9 @@
                             color = this.currentColor;
                             classes.push('filled');
                         }
-                        // Check for ghost piece - only for levels 1-2
+                        // Check for ghost piece - for levels 1-2 OR when ghost piece bonus is active
                         else if (this.currentPiece &&
-                            this.level <= 2 &&
+                            (this.level <= 2 || this.ghostPieceRemaining > 0) &&
                             i >= ghostY &&
                             i < ghostY + this.currentPiece.length &&
                             j >= this.currentX &&
