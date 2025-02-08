@@ -1,18 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Text Tetris</title>
+    <title>Fcuk Putin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
-        #game {
-            font-family: 'Courier New', monospace;
-            font-size: 30px;
-            line-height: 1;
-            white-space: pre;
-            background: black;
-            color: white;
-            padding: 20px;
-            transform: scaleX(1.75);
-            margin: auto;  /* Center the game container */
+        * {
+            box-sizing: border-box;
         }
         body {
             display: flex;
@@ -21,24 +14,171 @@
             height: 100vh;
             margin: 0;
             background: #333;
-            /* Remove max-width and overflow restrictions */
+            font-family: 'Press Start 2P', sans-serif;
+            font-size: 18px;
         }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: black;
+            color: white;
+            min-width: 500px;
+        }
+
+        .game-area {
+            display: flex;
+            gap: 20px;
+        }
+
+        .board {
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #666;
+            background-color: black;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #222;
+        }
+
+        .cell.filled {
+            border-radius: 2px;
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .next-piece {
+            margin-top: 20px;
+            min-width: 90px;
+        }
+
+        .next-piece-display {
+            margin-top: 10px;
+        }
+
+        .next-piece-display .cell {
+            width: 20px;
+            height: 20px;
+        }
+
+        .score {
+            margin-bottom: 20px;
+        }
+
+        .game-over, .paused {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 1;
+            border: 1px solid currentColor;
+        }
+
         .game-over {
-            color: red;
+            /* color: red; */
+            width: 80%;
+        }
+
+        .paused {
+            /* font-size: 24px; */
+        }
+
+        .board-container {
+            position: relative;
+        }
+
+        .current-track {
+            margin-top: 20px;
+            /* color: #aaa; */
+            /* text-align: center; */
+        }
+
+        .stats-panel {
+            padding: 10px;
+            border-top: 1px solid #444;
+            margin-top: 20px;
+            min-width: 120px;
+        }
+
+        .stat-row {
+            margin: 10px 0;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .mini-piece {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #222;
+        }
+
+        .mini-piece-grid {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 1px;
+            background: #222;
+            padding: 2px;
+            transform: translateY(-10px);
+        }
+
+        .mini-row {
+            display: flex;
+            gap: 1px;
+        }
+
+        .mini-cell {
+            width: 6px;
+            height: 6px;
+            background: transparent;
+        }
+
+        .mini-cell.filled {
+            border-radius: 1px;
         }
     </style>
 </head>
 <body>
-    <pre id="game"></pre>
+    <div id="game" class="game-container"></div>
 
     <script>
+        const TRACKS = [
+            "01. Hopak.mp3",
+            "02 Loginska.mp3",
+            "03 Bradinsky.mp3",
+            "04 Kalinka.mp3",
+            "05 Troika.mp3"
+        ];
+        const GAME_OVER_TRACK = "08_20Game_20Over.mp3";
         const BOARD_WIDTH = 10;
         const BOARD_HEIGHT = 20;
-        const EMPTY = '·';
-        const BLOCK = '█';
+        const EMPTY = null;
+        const BLOCK = 1;
+        const PIECE_NAMES = ['I', 'O', 'T', 'L', 'J', 'S', 'Z'];
 
         const SHAPES = [
-            { shape: [[1, 1, 1, 1]], color: 'cyan' },           // I
+            { shape: [[0, 0, 0, 0], [1, 1, 1, 1]], color: 'cyan' },           // I
             { shape: [[1, 1], [1, 1]], color: 'yellow' },       // O
             { shape: [[1, 1, 1], [0, 1, 0]], color: 'purple' }, // T
             { shape: [[1, 1, 1], [1, 0, 0]], color: 'orange' }, // L
@@ -67,50 +207,141 @@
                 this.nextPiece = null;
                 this.nextColor = null;
 
+                // Initialize or load piece statistics
+                this.pieceStats = JSON.parse(localStorage.getItem('tetrisPieceStats')) || {
+                    I: 0, // long piece
+                    O: 0, // square
+                    T: 0, // T piece
+                    L: 0, // L piece
+                    J: 0, // reverse L
+                    S: 0, // S piece
+                    Z: 0  // Z piece
+                };
+                this.totalPieces = Object.values(this.pieceStats).reduce((a, b) => a + b, 0);
+
+                // Add audio properties
+                this.currentTrackIndex = 0;
+                this.audio = new Audio(`assets/${TRACKS[0]}`);
+                this.audio.loop = true;
+                this.audio.volume = 0.5;
+
+                // Start playing when game starts
+                this.audio.play().catch(e => console.log('Audio playback failed:', e));
+
+                // Count the first piece
+                const firstIndex = Math.floor(Math.random() * SHAPES.length);
+                const firstPiece = SHAPES[firstIndex];
+                this.pieceStats[PIECE_NAMES[firstIndex]]++;
+                this.totalPieces++;
+                localStorage.setItem('tetrisPieceStats', JSON.stringify(this.pieceStats));
+
+                this.nextPiece = firstPiece.shape;
+                this.nextColor = firstPiece.color;
+
                 this.spawnPiece();
                 this.bindControls();
                 this.gameLoop();
+
+                this.mouseTimer = null;
+                this.setupMouseHiding();
+            }
+
+            setupMouseHiding() {
+                // Initially hide cursor
+                if (!this.gameOver && !this.paused) {
+                    document.body.style.cursor = 'none';
+                }
+
+                // Show cursor on any mouse movement
+                document.addEventListener('mousemove', () => {
+                    document.body.style.cursor = 'default';
+
+                    // Clear any existing timer
+                    if (this.mouseTimer) {
+                        clearTimeout(this.mouseTimer);
+                    }
+
+                    // Set new timer to hide cursor after 3 seconds
+                    this.mouseTimer = setTimeout(() => {
+                        if (!this.gameOver && !this.paused) {
+                            document.body.style.cursor = 'none';
+                        }
+                    }, 3000);
+                });
+
+                // Show cursor when game is paused or over
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'p' || e.key === 'P' || this.gameOver) {
+                        document.body.style.cursor = 'default';
+                    }
+                });
             }
 
             spawnPiece() {
                 if (this.nextPiece === null) {
-                    const randomPiece = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    const randomIndex = Math.floor(Math.random() * SHAPES.length);
+                    const randomPiece = SHAPES[randomIndex];
                     this.nextPiece = randomPiece.shape;
                     this.nextColor = randomPiece.color;
+                    this.pieceStats[PIECE_NAMES[randomIndex]]++;
+                    this.totalPieces++;
+                    localStorage.setItem('tetrisPieceStats', JSON.stringify(this.pieceStats));
                 }
 
                 this.currentPiece = this.nextPiece;
                 this.currentColor = this.nextColor;
 
                 // Get next piece ready
-                const randomPiece = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                const randomIndex = Math.floor(Math.random() * SHAPES.length);
+                const randomPiece = SHAPES[randomIndex];
                 this.nextPiece = randomPiece.shape;
                 this.nextColor = randomPiece.color;
+                this.pieceStats[PIECE_NAMES[randomIndex]]++;
+                this.totalPieces++;
+                localStorage.setItem('tetrisPieceStats', JSON.stringify(this.pieceStats));
 
                 this.currentX = Math.floor((BOARD_WIDTH - this.currentPiece[0].length) / 2);
                 this.currentY = 0;
 
                 if (!this.isValidMove(this.currentX, this.currentY, this.currentPiece)) {
                     this.gameOver = true;
+                    // Stop current music and play game over track
+                    this.audio.pause();
+                    this.audio.currentTime = 0;
+                    this.audio = new Audio(`assets/${GAME_OVER_TRACK}`);
+                    this.audio.volume = 0.5;
+                    this.audio.play().catch(e => console.log('Audio playback failed:', e));
                 }
             }
 
             bindControls() {
-                // Add window blur event handler at the start of bindControls
                 window.addEventListener('blur', () => {
+                    // Pause music when window loses focus
+                    this.audio.pause();
+
                     // Reset all key states when window loses focus
                     Object.keys(this.keyStates).forEach(key => {
                         this.keyStates[key] = false;
                     });
-                    // Clear any existing move interval
                     if (this.moveInterval) {
                         clearInterval(this.moveInterval);
                         this.moveInterval = null;
                     }
                 });
 
+                window.addEventListener('focus', () => {
+                    // Resume music when window gains focus
+                    if (!this.gameOver && !this.paused) {
+                        this.audio.play().catch(e => console.log('Audio playback failed:', e));
+                    }
+                });
+
                 document.addEventListener('keydown', (e) => {
                     if (this.gameOver) {
+                        // Stop game over music
+                        this.audio.pause();
+                        this.audio.currentTime = 0;
+
                         // Reset game state
                         this.board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill({ value: EMPTY }));
                         this.score = 0;
@@ -124,17 +355,27 @@
                         document.getElementById('game').classList.remove('game-over');
                         this.spawnPiece();
                         this.gameLoop();
+
+                        // Restart music from first track
+                        this.currentTrackIndex = 0;
+                        this.audio = new Audio(`assets/${TRACKS[0]}`);
+                        this.audio.loop = true;
+                        this.audio.volume = 0.5;
+                        this.audio.play().catch(e => console.log('Audio playback failed:', e));
+
                         return;
                     }
 
                     // Handle pause
                     if (e.key === 'p' || e.key === 'P') {
                         this.paused = !this.paused;
+                        // Pause/resume music with game
                         if (this.paused) {
-                            this.gameLoop();
+                            this.audio.pause();
                         } else {
-                            this.gameLoop();
+                            this.audio.play().catch(e => console.log('Audio playback failed:', e));
                         }
+                        this.gameLoop();
                         this.draw();
                         return;
                     }
@@ -275,16 +516,35 @@
                 }
 
                 if (linesCleared > 0) {
-                    this.score += linesCleared * 100;
+                    // Special scoring for Tetris (4 lines)
+                    const baseScore = linesCleared === 4 ? 800 : linesCleared * 100;
+                    this.score += baseScore * this.level;
                     this.linesCleared += linesCleared;
 
-                    // Check if level should increase
                     const targetLines = this.level * 10;
                     if (this.linesCleared >= targetLines) {
                         this.level++;
                         this.linesCleared = 0;  // Reset lines for next level
+
+                        // Change music track when leveling up
+                        this.changeTrack();
                     }
                 }
+            }
+
+            changeTrack() {
+                // Stop current track
+                this.audio.pause();
+                this.audio.currentTime = 0;
+
+                // Move to next track or back to start
+                this.currentTrackIndex = (this.currentTrackIndex + 1) % TRACKS.length;
+
+                // Create and play new track
+                this.audio = new Audio(`assets/${TRACKS[this.currentTrackIndex]}`);
+                this.audio.loop = true;
+                this.audio.volume = 0.5;
+                this.audio.play().catch(e => console.log('Audio playback failed:', e));
             }
 
             getFallSpeed() {
@@ -295,23 +555,22 @@
 
             draw() {
                 const display = document.getElementById('game');
-                const BORDER = '█';
-                const BORDER_COLOR = '#666';
+                let html = `
+                    <div class="score">Score: ${this.score}</div>
+                    <div class="game-area">
+                        <div class="board-container">
+                            ${this.gameOver ? '<div class="game-over">Game Over!<br>Press any key.</div>' : ''}
+                            ${this.paused ? '<div class="paused">PAUSED</div>' : ''}
+                            <div class="board">
+                `;
 
-                // Calculate score position for centering
-                const scoreText = `Score: ${this.score}`;
-                const leftPadding = Math.floor((BOARD_WIDTH - scoreText.length) / 2) + 1;
-                let displayString = ' '.repeat(leftPadding) + scoreText + '\n\n';
-
-                // Create game board string
+                // Create game board
                 for (let i = 0; i < BOARD_HEIGHT; i++) {
-                    // Left border
-                    displayString += `<span style="color: ${BORDER_COLOR}">${BORDER}</span>`;
-
-                    // Game field
+                    html += '<div class="row">';
                     for (let j = 0; j < BOARD_WIDTH; j++) {
                         const cell = this.board[i][j];
-                        let char = cell.value;
+                        let color = 'transparent';
+                        let isFilled = false;
 
                         if (this.currentPiece &&
                             i >= this.currentY &&
@@ -319,49 +578,103 @@
                             j >= this.currentX &&
                             j < this.currentX + this.currentPiece[0].length &&
                             this.currentPiece[i - this.currentY][j - this.currentX]) {
-                            displayString += `<span style="color: ${this.currentColor}">${BLOCK}</span>`;
+                            color = this.currentColor;
+                            isFilled = true;
                         } else if (cell.value === BLOCK) {
-                            displayString += `<span style="color: ${cell.color}">${BLOCK}</span>`;
-                        } else {
-                            displayString += `<span style="color: #444">${char}</span>`;
+                            color = cell.color;
+                            isFilled = true;
                         }
+
+                        html += `<div class="cell${isFilled ? ' filled' : ''}" style="background-color: ${color}"></div>`;
                     }
-
-                    // Right border and info
-                    displayString += `<span style="color: ${BORDER_COLOR}">${BORDER}</span>`;
-
-                    // Draw next piece preview and info
-                    if (i === 1) {
-                        displayString += '    Level: ' + this.level;
-                    } else if (i === 2) {
-                        displayString += '    Clear: ' + ((this.level * 10) - this.linesCleared);
-                    } else if (i === 4) {
-                        displayString += '    Next:';
-                    } else if (i >= 5 && i < 5 + this.nextPiece.length) {
-                        displayString += '    ';
-                        for (let j = 0; j < this.nextPiece[i - 5].length; j++) {
-                            if (this.nextPiece[i - 5][j]) {
-                                displayString += `<span style="color: ${this.nextColor}">${BLOCK}</span>`;
-                            } else {
-                                displayString += ' ';
-                            }
-                        }
-                    }
-
-                    displayString += '\n';
+                    html += '</div>';
                 }
 
-                // Draw bottom border
-                displayString += `<span style="color: ${BORDER_COLOR}">${BORDER.repeat(BOARD_WIDTH + 2)}</span>`;
+                html += `
+                            </div>
+                        </div>
+                        <div class="info-panel">
+                            <div>Level: ${this.level}</div>
+                            <div>Clear: ${(this.level * 10) - this.linesCleared}</div>
+                            <div class="next-piece">
+                                <div>Next:</div>
+                                <div class="next-piece-display">
+                `;
 
-                if (this.gameOver) {
-                    displayString += '\nGame Over! Press any key.';
-                    display.classList.add('game-over');
-                } else if (this.paused) {
-                    displayString += '\nPAUSED';
+                // Draw next piece preview
+                for (let i = 0; i < this.nextPiece.length; i++) {
+                    html += '<div class="row">';
+                    for (let j = 0; j < this.nextPiece[i].length; j++) {
+                        const isFilled = this.nextPiece[i][j] === 1;
+                        html += `<div class="cell${isFilled ? ' filled' : ''}"
+                                    style="background-color: ${isFilled ? this.nextColor : 'transparent'}">
+                                </div>`;
+                    }
+                    html += '</div>';
                 }
 
-                display.innerHTML = displayString;
+                html += `
+                                </div>
+                            </div>
+                            <div class="current-track">
+                                Now Playing:<br>
+                                ${TRACKS[this.currentTrackIndex].replace(/\.[^/.]+$/, '')}
+                            </div>
+                            <div class="stats-panel">
+                                <div>Piece Stats:</div>
+                                ${Object.entries(this.pieceStats).map(([piece, count]) => {
+                                    const miniPiece = this.getMiniPieceHtml(piece, count);
+                                    return `
+                                        <div class="stat-row">
+                                            <div class="mini-piece">${miniPiece}</div>
+                                            ${((count / this.totalPieces) * 100 || 0).toFixed(1)}% (${count})
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                display.innerHTML = html;
+            }
+
+            getMiniPieceHtml(piece, count) {
+                const pieceShapes = {
+                    'I': [[1, 1, 1, 1]],
+                    'O': [[1, 1], [1, 1]],
+                    'T': [[1, 1, 1], [0, 1, 0]],
+                    'L': [[1, 1, 1], [1, 0, 0]],
+                    'J': [[1, 1, 1], [0, 0, 1]],
+                    'S': [[0, 1, 1], [1, 1, 0]],
+                    'Z': [[1, 1, 0], [0, 1, 1]]
+                };
+
+                const pieceColors = {
+                    'I': 'cyan',
+                    'O': 'yellow',
+                    'T': 'purple',
+                    'L': 'orange',
+                    'J': 'blue',
+                    'S': 'green',
+                    'Z': 'red'
+                };
+
+                const shape = pieceShapes[piece];
+                let miniHtml = '<div class="mini-piece-grid">';
+
+                for (let row of shape) {
+                    miniHtml += '<div class="mini-row">';
+                    for (let cell of row) {
+                        miniHtml += `<div class="mini-cell${cell ? ' filled' : ''}"
+                                         style="${cell ? `background-color: ${pieceColors[piece]}` : ''}">
+                                    </div>`;
+                    }
+                    miniHtml += '</div>';
+                }
+
+                miniHtml += '</div>';
+                return miniHtml;
             }
 
             gameLoop() {
