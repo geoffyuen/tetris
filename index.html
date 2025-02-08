@@ -54,6 +54,7 @@
         .cell.filled {
             border-radius: 2px;
             border-color: rgba(255, 255, 255, 0.5);
+            transition: background-color 0.1s;
         }
 
         .info-panel {
@@ -522,7 +523,8 @@
                         if (this.currentPiece[i][j]) {
                             this.board[this.currentY + i][this.currentX + j] = {
                                 value: BLOCK,
-                                color: this.currentColor
+                                color: this.currentColor,
+                                originalColor: this.currentColor
                             };
                         }
                     }
@@ -531,36 +533,83 @@
 
             clearLines() {
                 let linesCleared = 0;
+                let linesToClear = [];
 
+                // First identify lines to clear
                 for (let i = BOARD_HEIGHT - 1; i >= 0; i--) {
                     if (this.board[i].every(cell => cell.value === BLOCK)) {
-                        this.board.splice(i, 1);
-                        this.board.unshift(Array(BOARD_WIDTH).fill({ value: EMPTY }));
+                        linesToClear.push(i);
                         linesCleared++;
-                        i++;
                     }
                 }
 
                 if (linesCleared > 0) {
-                    // Special scoring for Tetris (4 lines)
-                    const baseScore = linesCleared === 4 ? 800 : linesCleared * 100;
-                    this.score += baseScore * this.level;
+                    // Animate the lines
+                    this.animateLineClear(linesToClear, () => {
+                        // After animation, remove the lines
+                        linesToClear.forEach(line => {
+                            this.board.splice(line, 1);
+                            this.board.unshift(Array(BOARD_WIDTH).fill({ value: EMPTY }));
+                        });
 
-                    // Check for new high score
-                    if (this.score > this.highScore) {
-                        this.highScore = this.score;
-                        localStorage.setItem('tetrisHighScore', this.highScore);
-                    }
+                        // Special scoring for Tetris (4 lines)
+                        const baseScore = linesCleared === 4 ? 800 : linesCleared * 100;
+                        this.score += baseScore * this.level;
 
-                    this.linesCleared += linesCleared;
+                        // Check for new high score
+                        if (this.score > this.highScore) {
+                            this.highScore = this.score;
+                            localStorage.setItem('tetrisHighScore', this.highScore);
+                        }
 
-                    const targetLines = this.level * 10;
-                    if (this.linesCleared >= targetLines) {
-                        this.level++;
-                        this.linesCleared = 0;
-                        this.changeTrack();
-                    }
+                        this.linesCleared += linesCleared;
+
+                        const targetLines = this.level * 10;
+                        if (this.linesCleared >= targetLines) {
+                            this.level++;
+                            this.linesCleared = 0;
+                            this.changeTrack();
+                        }
+
+                        this.draw();
+                    });
                 }
+            }
+
+            animateLineClear(lines, callback) {
+                let flashCount = 0;
+                const maxFlashes = 3;
+                const flashDelay = 50;
+
+                const flash = () => {
+                    flashCount++;
+                    lines.forEach(line => {
+                        this.board[line].forEach(cell => {
+                            if (cell.value === BLOCK) {
+                                cell.color = flashCount % 2 === 0 ? cell.originalColor : 'white';
+                            }
+                        });
+                    });
+
+                    this.draw();
+
+                    if (flashCount < maxFlashes * 2) {
+                        setTimeout(flash, flashDelay);
+                    } else {
+                        if (callback) callback();
+                    }
+                };
+
+                // Store original colors
+                lines.forEach(line => {
+                    this.board[line].forEach(cell => {
+                        if (cell.value === BLOCK) {
+                            cell.originalColor = cell.color;
+                        }
+                    });
+                });
+
+                flash();
             }
 
             changeTrack() {
