@@ -293,8 +293,9 @@
                 // Initialize high score from localStorage
                 this.highScore = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
 
-                // Add ghost piece counter
+                // Add counters for bonuses
                 this.ghostPieceRemaining = 0;
+                this.showNextPieceRemaining = 0;
 
                 this.spawnPiece();
                 this.bindControls();
@@ -566,9 +567,12 @@
                     }
                 }
 
-                // Decrement ghost piece counter if it's active
+                // Decrement bonus counters if active
                 if (this.ghostPieceRemaining > 0) {
                     this.ghostPieceRemaining--;
+                }
+                if (this.showNextPieceRemaining > 0) {
+                    this.showNextPieceRemaining--;
                 }
             }
 
@@ -616,9 +620,12 @@
                             this.animateLevelUp();
                         }
 
-                        // Enable ghost piece for next 8 pieces if Tetris was achieved
+                        // Enable bonuses based on lines cleared
                         if (linesCleared === 4) {
                             this.ghostPieceRemaining = 8;
+                        }
+                        if (linesCleared === 3) {
+                            this.showNextPieceRemaining = 8;
                         }
 
                         this.draw();
@@ -767,9 +774,9 @@
                         <div class="info-panel">
                             <div class="level-display">Level: ${this.level}</div>
                             <div>Clear: ${(this.level * 10) - this.linesCleared}</div>
-                            ${this.level <= 4 ? `
+                            ${(this.level <= 4 || this.showNextPieceRemaining > 0) ? `
                                 <div class="next-piece">
-                                    <div>Next:</div>
+                                    <div>Next:${this.showNextPieceRemaining > 0 ? ` (${this.showNextPieceRemaining})` : ''}</div>
                                     <div class="next-piece-display">
                                         ${this.drawNextPiece()}
                                     </div>
