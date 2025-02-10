@@ -30,8 +30,10 @@
         }
 
         .game-area {
-            display: flex;
             gap: 20px;
+            @media (min-width: 600px) {
+                display: flex;
+            }
         }
 
         .board {
@@ -80,7 +82,7 @@
         }
 
         .score {
-            margin-bottom: 20px;
+            {# margin-bottom: 20px; #}
         }
 
         .game-over, .paused {
@@ -111,8 +113,10 @@
 
         .current-track {
             margin-top: 20px;
-            /* color: #aaa; */
-            /* text-align: center; */
+            display: none;
+            @media (min-width: 600px) {
+                display: block;
+            }
         }
 
         .stats-panel {
@@ -120,6 +124,10 @@
             border-top: 1px solid #444;
             margin-top: 20px;
             min-width: 120px;
+            display: none;
+            @media (min-width: 600px) {
+                display: block;
+            }
         }
 
         .stat-row {
@@ -164,8 +172,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
+            {# gap: 10px; #}
+            {# margin-bottom: 20px; #}
         }
 
         .high-score {
@@ -745,7 +753,7 @@
                     <div class="score-container">
                         <div class="score">Score: ${this.score}</div>
                         <div class="high-score${this.score > 0 && this.score === this.highScore ? ' new-high-score' : ''}">
-                            High Score: ${this.highScore}
+                            Hi: ${this.highScore}
                         </div>
                     </div>
                     <div class="game-area">
@@ -807,8 +815,8 @@
                             </div>
                         </div>
                         <div class="info-panel">
-                            <div class="level-display">Level: ${this.level}</div>
-                            <div>Clear: ${(this.level * 10) - this.linesCleared}</div>
+                            <div class="level-display">LVL: ${this.level}</div>
+                            <div>CLR: ${(this.level * 10) - this.linesCleared}</div>
                             ${(this.level <= 4 || this.showNextPieceRemaining > 0) ? `
                                 <div class="next-piece">
                                     <div>Next:${this.showNextPieceRemaining > 0 ? ` (${this.showNextPieceRemaining})` : ''}</div>
