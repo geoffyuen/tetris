@@ -483,11 +483,8 @@
 
                     // Handle rotation separately (no continuous movement)
                     if (e.key === 'ArrowUp') {
-                        const rotated = this.rotate(this.currentPiece);
-                        if (this.isValidMove(this.currentX, this.currentY, rotated)) {
-                            this.currentPiece = rotated;
-                            this.draw();
-                        }
+                        this.tryRotate();
+                        this.draw();
                     }
                 });
 
@@ -534,6 +531,44 @@
                     }
                 }
                 return rotated;
+            }
+
+            tryRotate() {
+                const rotated = this.rotate(this.currentPiece);
+
+                // Try normal rotation
+                if (this.isValidMove(this.currentX, this.currentY, rotated)) {
+                    this.currentPiece = rotated;
+                    return;
+                }
+
+                // Try moving left if blocked on right
+                if (this.isValidMove(this.currentX - 1, this.currentY, rotated)) {
+                    this.currentX--;
+                    this.currentPiece = rotated;
+                    return;
+                }
+
+                // Try moving right if blocked on left
+                if (this.isValidMove(this.currentX + 1, this.currentY, rotated)) {
+                    this.currentX++;
+                    this.currentPiece = rotated;
+                    return;
+                }
+
+                // Try moving two spaces left
+                if (this.isValidMove(this.currentX - 2, this.currentY, rotated)) {
+                    this.currentX -= 2;
+                    this.currentPiece = rotated;
+                    return;
+                }
+
+                // Try moving two spaces right
+                if (this.isValidMove(this.currentX + 2, this.currentY, rotated)) {
+                    this.currentX += 2;
+                    this.currentPiece = rotated;
+                    return;
+                }
             }
 
             isValidMove(x, y, piece) {
