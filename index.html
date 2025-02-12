@@ -224,13 +224,28 @@
 
     <script>
         const TRACKS = [
-            "01. Hopak.mp3",
-            "02 Loginska.mp3",
-            "03 Bradinsky.mp3",
-            "04 Kalinka.mp3",
-            "05 Troika.mp3"
+            {
+                name: "Hopak",
+                url: "https://res.cloudinary.com/geoffyuen/video/upload/v1739317492/tetris/01._Hopak.mp3"
+            },
+            {
+                name: "Loginska",
+                url: "https://res.cloudinary.com/geoffyuen/video/upload/v1739317494/tetris/02_Loginska.mp3"
+            },
+            {
+                name: "Bradinsky",
+                url: "https://res.cloudinary.com/geoffyuen/video/upload/v1739317493/tetris/03_Bradinsky.mp3"
+            },
+            {
+                name: "Kalinka",
+                url: "https://res.cloudinary.com/geoffyuen/video/upload/v1739317493/tetris/04_Kalinka.mp3"
+            },
+            {
+                name: "Troika",
+                url: "https://res.cloudinary.com/geoffyuen/video/upload/v1739317495/tetris/05_Troika.mp3"
+            }
         ];
-        const GAME_OVER_TRACK = "08_20Game_20Over.mp3";
+        const GAME_OVER_TRACK = "https://res.cloudinary.com/geoffyuen/video/upload/v1739317492/tetris/08_20Game_20Over.mp3";
         const BOARD_WIDTH = 10;
         const BOARD_HEIGHT = 20;
         const EMPTY = null;
@@ -279,9 +294,9 @@
                 };
                 this.totalPieces = Object.values(this.pieceStats).reduce((a, b) => a + b, 0);
 
-                // Add audio properties
+                // Initialize audio with first track URL
                 this.currentTrackIndex = 0;
-                this.audio = new Audio(`assets/${TRACKS[0]}`);
+                this.audio = new Audio(TRACKS[0].url);  // Use .url property
                 this.audio.loop = true;
                 this.audio.volume = 0.5;
 
@@ -375,7 +390,7 @@
                     // Stop current music and play game over track
                     this.audio.pause();
                     this.audio.currentTime = 0;
-                    this.audio = new Audio(`assets/${GAME_OVER_TRACK}`);
+                    this.audio = new Audio(GAME_OVER_TRACK);  // Use direct URL
                     this.audio.volume = 0.5;
                     this.audio.play().catch(e => console.log('Audio playback failed:', e));
                 }
@@ -430,7 +445,7 @@
 
                         // Restart music from first track
                         this.currentTrackIndex = 0;
-                        this.audio = new Audio(`assets/${TRACKS[0]}`);
+                        this.audio = new Audio(TRACKS[0].url);  // Use .url property
                         this.audio.loop = true;
                         this.audio.volume = 0.5;
                         this.audio.play().catch(e => console.log('Audio playback failed:', e));
@@ -735,7 +750,7 @@
                 this.currentTrackIndex = (this.currentTrackIndex + 1) % TRACKS.length;
 
                 // Create and play new track
-                this.audio = new Audio(`assets/${TRACKS[this.currentTrackIndex]}`);
+                this.audio = new Audio(TRACKS[this.currentTrackIndex].url);  // Use .url property
                 this.audio.loop = true;
                 this.audio.volume = 0.5;
                 this.audio.play().catch(e => console.log('Audio playback failed:', e));
@@ -827,7 +842,7 @@
                             ` : ''}
                             <div class="current-track">
                                 Now Playing:<br>
-                                ${TRACKS[this.currentTrackIndex].replace(/\.[^/.]+$/, '')}
+                                ${TRACKS[this.currentTrackIndex].name}
                             </div>
                             <div class="stats-panel">
                                 <div>Piece Stats:</div>
